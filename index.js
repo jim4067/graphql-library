@@ -1,4 +1,5 @@
-const { ApolloServer, gql } = require('apollo-server');
+const { ApolloServer, UserInputError, gql } = require('apollo-server');
+const { v1: uuid, v1 } = require('uuid');
 
 let authors = [
 	{
@@ -87,13 +88,13 @@ const typeDefs = gql`
   type Author {
 	  name: String!
 	  id: ID!
-	  born: String
+	  born: Int
 	  bookCount: Int!
   }
 
   type Book {
 	  title: String!
-	  published: String!
+	  published: Int!
 	  author: String!
 	  id: ID!
 	  genres: [String!]!
@@ -104,6 +105,18 @@ const typeDefs = gql`
 	  authorCount: Int!
 	  allBooks(author: String, genre: String): [Book]!
 	  allAuthors: [Author!]!
+  }
+  type Mutation {
+	  addBook(
+		  title: String!
+		  author: String!
+		  published: Int!
+		  genres: [String!]!
+	  ) : Book
+	  editAuthor(
+		  name: String!
+		  setBornTo: Int!
+	  ) : Author
   }
 `;
 
@@ -120,13 +133,45 @@ const resolvers = {
 			}
 			if (args.author && args.genre) {
 				return books.filter((book) => book.author === args.author && book.genres.find((el) => el === args.genre));
-			}/* return books.filter((b) => b.genres.find(el => el === parameter))*/
+			}
 		},
 		allAuthors: () => authors,
 	},
 	Author: {
 		bookCount: (root) => {
 			return books.filter((b) => b.author === root.name).length
+		}
+	},
+	Mutation: {
+		addBook: (root, args) => {
+			//making sure a book is not added twice
+			if (books.find((b) => b.title === args.title)) {
+				throw new UserInputError('Book already exists', {
+					invalidArgs: args.title,
+				});
+			}
+
+			const book = { ...args, id: uuid() };
+			books = books.concat(book);
+
+			//if new book being added contains an author not in system save him/her
+			if (authors.find((b) => b.author !== book.author)) {
+				const new_author = { name: book.author, }
+				authors = authors.concat(new_author);
+			}
+
+			return book;
+		},
+		editAuthor: (root, args) => {
+			let author = authors.find((a) => a.name === args.name);
+
+			if (!author) {
+				return null;
+			}
+
+			const updated_author = { ...author, born: args.setBornTo };
+			author = authors.map((a) => a.name === args.name ? updated_author : a);
+			return updated_author;
 		}
 	}
 };
