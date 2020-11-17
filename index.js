@@ -133,6 +133,8 @@ const resolvers = {
 			}
 			if (args.author && args.genre) {
 				return books.filter((book) => book.author === args.author && book.genres.find((el) => el === args.genre));
+			} else {
+				return books;
 			}
 		},
 		allAuthors: () => authors,
